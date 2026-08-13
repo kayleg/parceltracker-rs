@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-13T15:30:00+00:00",
+  "selected": "1Z999AA10123456784",
+  "parcels": [
+    {
+      "id": "1755080000001",
+      "trackingNumber": "1Z999AA10123456784",
+      "carrier": "UPS",
+      "description": "Keyboard",
+      "state": "in-transit",
+      "statusText": "In Transit",
+      "location": "Louisville, KY",
+      "eta": "2026-08-15T20:00:00+00:00",
+      "etaLabel": "Sat @ 4:00pm",
+      "daysUntilDelivery": 2,
+      "lastUpdated": "2026-08-13T14:55:00+00:00",
+      "trackingUrl": "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+      "events": [
+        {
+          "time": "2026-08-13T12:30:00+00:00",
+          "description": "Departed from facility",
+          "location": "Louisville, KY"
+        },
+        {
+          "time": "2026-08-12T22:10:00+00:00",
+          "description": "Arrived at facility",
+          "location": "Louisville, KY"
+        }
+      ]
+    },
+    {
+      "id": "1755080000002",
+      "trackingNumber": "9400111899223100000001",
+      "carrier": "USPS",
+      "description": "Socks",
+      "state": "delivered",
+      "statusText": "Delivered, In/At Mailbox",
+      "location": "Home",
+      "eta": null,
+      "etaLabel": null,
+      "daysUntilDelivery": null,
+      "lastUpdated": "2026-08-12T18:00:00+00:00",
+      "trackingUrl": "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111899223100000001",
+      "events": [
+        {
+          "time": "2026-08-12T17:40:00+00:00",
+          "description": "Delivered, in/at mailbox",
+          "location": "Miami, FL"
+        }
+      ]
+    },
+    {
+      "id": "1755080000003",
+      "trackingNumber": "794658100000",
+      "carrier": "FedEx",
+      "description": "Espresso machine",
+      "state": "out-for-delivery",
+      "statusText": "Out for delivery",
+      "location": "Miami, FL",
+      "eta": "2026-08-13T22:00:00+00:00",
+      "etaLabel": "Today @ 6:00pm",
+      "daysUntilDelivery": 0,
+      "lastUpdated": "2026-08-13T13:05:00+00:00",
+      "trackingUrl": "https://www.fedex.com/fedextrack/?trknbr=794658100000",
+      "events": [
+        {
+          "time": "2026-08-13T11:00:00+00:00",
+          "description": "On FedEx vehicle for delivery",
+          "location": "Miami, FL"
+        }
+      ]
+    },
+    {
+      "id": "1755080000004",
+      "trackingNumber": "JD014600003111111111",
+      "carrier": "DHL",
+      "description": "Mystery box",
+      "state": "exception",
+      "statusText": "Delivery attempt failed",
+      "location": "Fort Lauderdale, FL",
+      "eta": null,
+      "etaLabel": null,
+      "daysUntilDelivery": null,
+      "lastUpdated": "2026-08-13T09:00:00+00:00",
+      "trackingUrl": "https://www.dhl.com/en/express/tracking.html?AWB=JD014600003111111111",
+      "events": []
+    }
+  ]
+}

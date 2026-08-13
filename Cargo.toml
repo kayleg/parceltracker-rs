@@ -1,0 +1,21 @@
+[package]
+name = "parceltracker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+crossterm = "0.27"
+dirs = "5.0"
+regex = "1.10"
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
+ratatui = "0.24"
+futures = "0.3"
+anyhow = "1.0"
+lazy_static = "1.4"
+colored = "2.0"
+comfy-table = "7.0"

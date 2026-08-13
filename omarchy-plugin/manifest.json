@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "kayleg.parcel",
+  "name": "Parcel",
+  "version": "1.0.0",
+  "author": "kayleg",
+  "license": "MIT",
+  "description": "Parcel tracking in the Omarchy bar, backed by the parceltracker CLI: state-colored badge, shipment list with ETAs, and expandable checkpoint timelines.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Parcel",
+    "description": "Lead parcel and ETA in the bar; popup with every shipment, checkpoint history, and carrier tracking links.",
+    "category": "Productivity",
+    "allowMultiple": false,
+    "defaults": {
+      "refreshIntervalSec": 60,
+      "showLabel": true
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 15,
+        "max": 3600,
+        "step": 15,
+        "defaultValue": 60,
+        "description": "How often to re-read parceltracker's local state. Carrier API updates run on their own systemd timer."
+      },
+      {
+        "key": "showLabel",
+        "type": "boolean",
+        "label": "Show parcel label in the bar",
+        "defaultValue": true,
+        "description": "Show the lead parcel's name and ETA next to the icon on horizontal bars. Off = icon only."
+      }
+    ]
+  }
+}

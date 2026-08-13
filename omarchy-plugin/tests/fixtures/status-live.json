@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-08-13T19:33:35.257914650+00:00",
+  "parcels": [
+    {
+      "carrier": "FedEx",
+      "daysUntilDelivery": null,
+      "description": "xtape1",
+      "eta": null,
+      "etaLabel": null,
+      "events": [],
+      "id": "1786646737762",
+      "lastUpdated": "2026-08-13T19:09:41.540676859+00:00",
+      "location": "US",
+      "state": "pre-transit",
+      "statusText": "InfoReceived",
+      "trackingNumber": "61290367906336228912",
+      "trackingUrl": "https://www.fedex.com/fedextrack/?trknbr=61290367906336228912"
+    }
+  ],
+  "selected": "61290367906336228912",
+  "version": 1
+}
