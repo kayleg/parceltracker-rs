@@ -65,25 +65,25 @@ enum Commands {
     /// Update tracking information from API
     Update,
 
-    /// Select a parcel for waybar display
+    /// Select the parcel that leads the bar display
     Select {
         /// Position number or tracking number
         identifier: String,
     },
 
-    /// Unselect the current waybar parcel
+    /// Clear the bar's parcel selection
     Unselect,
 
     /// Output waybar JSON
     Waybar,
 
-    /// Open tracking page in browser (defaults to waybar-selected parcel)
+    /// Open tracking page in browser (defaults to the bar-selected parcel)
     Open {
         /// Position number or tracking number (optional)
         identifier: Option<String>,
     },
 
-    /// Cycle selected parcel for waybar
+    /// Cycle the bar's selected parcel
     Cycle,
 
     /// Status output (for waybar compatibility)

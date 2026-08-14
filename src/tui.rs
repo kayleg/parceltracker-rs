@@ -795,7 +795,7 @@ impl App {
             ]),
             Line::from(vec![
                 Span::styled(
-                    "Waybar Selected: ",
+                    "Selected in bar: ",
                     Style::default()
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),

@@ -73,8 +73,8 @@ parceltracker list              # List all parcels (text table)
 parceltracker update            # Update tracking (first-party APIs, then 17track)
 parceltracker setup             # Interactive wizard: get + validate API keys
 parceltracker config [flags]    # Show or set API credentials
-parceltracker select <position|tracking>     # Select for waybar
-parceltracker unselect          # Clear waybar selection
+parceltracker select <position|tracking>     # Select the bar's lead parcel
+parceltracker unselect          # Clear the bar selection
 parceltracker waybar            # Output waybar JSON
 parceltracker status --waybar   # Same as waybar (for waybar config)
 ```
@@ -83,7 +83,7 @@ parceltracker status --waybar   # Same as waybar (for waybar config)
 
 - **↑/↓**: Navigate parcels
 - **Enter**: View parcel details
-- **1-9**: Select parcel for waybar display
+- **1-9**: Select the parcel that leads the bar display
 - **u**: Unselect current selection
 - **q/Esc**: Quit or close details view
 - **PgUp/PgDn**: Scroll in details view
