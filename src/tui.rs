@@ -86,6 +86,7 @@ pub struct App {
     pub details_scroll_state: ScrollbarState,
     pub message: Option<String>,
     pub quit: bool,
+    pub launch_setup: bool,
     // Update tracking fields
     pub is_updating: bool,
     pub parcels_to_update: usize,
@@ -129,6 +130,7 @@ impl App {
             details_scroll_state: ScrollbarState::default(),
             message: None,
             quit: false,
+            launch_setup: false,
             is_updating: false,
             parcels_to_update: 0,
             parcels_updated: 0,
@@ -185,6 +187,12 @@ impl App {
                 self.handle_event(&command_tx)?;
             }
 
+            if self.launch_setup {
+                self.launch_setup = false;
+                self.run_setup(terminal)?;
+                self.start_update(command_tx.clone());
+            }
+
             if last_tick.elapsed() >= tick_rate {
                 if self.is_updating {
                     self.spinner_tick = (self.spinner_tick + 1) % 10;
@@ -193,6 +201,48 @@ impl App {
             }
         }
 
+        Ok(())
+    }
+
+    /// Suspend the TUI, run the interactive credential wizard inline in
+    /// the normal terminal screen, then restore the TUI. The caller
+    /// triggers a refresh so new credentials take effect immediately.
+    fn run_setup(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    ) -> Result<()> {
+        disable_raw_mode()?;
+        execute!(
+            terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )?;
+        terminal.show_cursor()?;
+
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(crate::setup::run())
+        });
+
+        {
+            use std::io::Write;
+            print!("\nPress Enter to return to the parcel list… ");
+            io::stdout().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+        }
+
+        enable_raw_mode()?;
+        execute!(
+            terminal.backend_mut(),
+            EnterAlternateScreen,
+            EnableMouseCapture
+        )?;
+        terminal.clear()?;
+
+        self.message = Some(match result {
+            Ok(()) => "Credentials saved — refreshing".to_string(),
+            Err(e) => format!("Setup failed: {}", e),
+        });
         Ok(())
     }
 
@@ -215,6 +265,10 @@ impl App {
     ) -> Result<()> {
         let total = parcels.len();
         let _ = command_tx.send(Command::Start(total));
+        let config = crate::storage::load_config().unwrap_or_default();
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()?;
         let client = Client::new().await?;
 
         // Register with 17track before fetching: gettrackinfo only returns data
@@ -227,7 +281,19 @@ impl App {
             let _ = command_tx.send(Command::ItemStart(idx));
 
             let mut updated_parcel = parcel.clone();
-            let err = match client.get_tracking_info(&updated_parcel).await {
+            // Same tiering as `parceltracker update`: first-party carrier
+            // API when configured, 17track otherwise or on failure.
+            let result =
+                match crate::carriers::for_carrier(&updated_parcel.resolved_carrier(), &config) {
+                    Some(provider) => {
+                        match provider.track(&http, &updated_parcel.tracking_number).await {
+                            Ok(info) => Ok(info),
+                            Err(_) => client.get_tracking_info(&updated_parcel).await,
+                        }
+                    }
+                    None => client.get_tracking_info(&updated_parcel).await,
+                };
+            let err = match result {
                 Ok(info) => {
                     updated_parcel.tracking_info = Some(info);
                     updated_parcel.last_updated = Some(chrono::Utc::now());
@@ -389,6 +455,9 @@ impl App {
                             self.input_mode = Some(InputMode::Rename);
                             self.input_buffer.clear();
                         }
+                    }
+                    KeyCode::Char('s') if !self.show_details => {
+                        self.launch_setup = true;
                     }
                     KeyCode::Char('d') if !self.show_details => {
                         if let Some(idx) = self.table_state.selected() {
@@ -886,7 +955,7 @@ impl App {
             )
         } else {
             format!(
-                "{}  ↑/↓: Navigate  Enter: Details  a:Add  r:Rename  d:Delete  U:Update  1-9:Select  u:Unselect  q:Quit",
+                "{}  ↑/↓: Navigate  Enter: Details  a:Add  r:Rename  d:Delete  U:Update  s:Setup keys  1-9:Select  u:Unselect  q:Quit",
                 status
             )
         };

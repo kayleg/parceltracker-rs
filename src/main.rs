@@ -6,7 +6,9 @@ use std::process::Command;
 
 #[allow(dead_code)]
 mod api;
+mod carriers;
 mod jsonout;
+mod setup;
 #[allow(dead_code)]
 mod models;
 #[allow(dead_code)]
@@ -94,6 +96,19 @@ enum Commands {
         #[arg(long, conflicts_with = "waybar")]
         json: bool,
     },
+
+    /// Interactive setup: walks through getting a key for each tracking
+    /// provider, validates it live, and saves the configuration
+    Setup,
+
+    /// Show or set API credentials. Amazon (TBA…) parcels need no key;
+    /// everything else uses 17track. With no flags, shows what is
+    /// configured.
+    Config {
+        /// 17track API key (api.17track.net)
+        #[arg(long)]
+        track17_key: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -118,6 +133,8 @@ async fn main() -> Result<()> {
         Some(Commands::Waybar) => output_waybar().await,
         Some(Commands::Open { identifier }) => open_tracking(identifier.as_deref()).await,
         Some(Commands::Cycle) => cycle_waybar_selection().await,
+        Some(Commands::Setup) => setup::run().await,
+        Some(Commands::Config { track17_key }) => config_cmd(track17_key),
         Some(Commands::Status { waybar, json }) => {
             if json {
                 output_json().await
@@ -357,11 +374,16 @@ async fn update_parcels() -> Result<()> {
 
     println!("{} Fetching tracking information...", "⟳".cyan());
 
+    let config = load_config().unwrap_or_default();
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
     let client = ApiClient::new().await?;
 
-    // Register numbers with 17track first. gettrackinfo only returns data for
-    // numbers that have already been registered, so a freshly-added parcel must
-    // be registered before its status can be fetched.
+    // Register numbers that the 17track tier will serve. gettrackinfo only
+    // returns data for registered numbers, so a freshly-added parcel must be
+    // registered before its status can be fetched. First-party parcels are
+    // registered too: they fall back to 17track when the carrier API errors.
     if let Err(e) = client.register(&parcels).await {
         eprintln!("  {} Registration warning: {}", "⚠".yellow(), e);
     } else {
@@ -372,11 +394,28 @@ async fn update_parcels() -> Result<()> {
     for parcel in parcels.iter_mut() {
         print!("  {}... ", parcel.tracking_number.cyan());
 
-        match client.get_tracking_info(parcel).await {
+        // Tier 1: the carrier's own API when credentials are configured.
+        // Tier 2: 17track, also covering first-party failures.
+        let mut source = "17track";
+        let result = match carriers::for_carrier(&parcel.resolved_carrier(), &config) {
+            Some(provider) => match provider.track(&http, &parcel.tracking_number).await {
+                Ok(info) => {
+                    source = provider.name();
+                    Ok(info)
+                }
+                Err(e) => {
+                    print!("{} {}, trying 17track... ", "⚠".yellow(), e);
+                    client.get_tracking_info(parcel).await
+                }
+            },
+            None => client.get_tracking_info(parcel).await,
+        };
+
+        match result {
             Ok(info) => {
                 parcel.tracking_info = Some(info);
                 parcel.last_updated = Some(chrono::Utc::now());
-                println!("{}", "✓".green());
+                println!("{} via {}", "✓".green(), source);
             }
             Err(e) => {
                 println!("{} ({})", "✗".red(), e);
@@ -393,6 +432,30 @@ async fn update_parcels() -> Result<()> {
     );
 
     Ok(())
+}
+
+fn config_cmd(track17_key: Option<String>) -> Result<()> {
+    let mut config = load_config().unwrap_or_default();
+
+    if track17_key.is_some() {
+        config.track17_api_key = track17_key;
+        storage::save_config(&config)?;
+        println!("{} Credentials saved", "✓".green());
+    }
+
+    print_config_summary(&config);
+    println!(
+        "\nAmazon (TBA…) parcels are tracked via track.amazon.com with no
+key; every other carrier uses 17track. Run `parceltracker setup`
+for a guided walkthrough."
+    );
+    Ok(())
+}
+
+pub(crate) fn print_config_summary(config: &models::Config) {
+    let set_or_dash = |v: &Option<String>| if v.is_some() { "set".green() } else { "—".dimmed() };
+    println!("  Amazon (TBA…): {}", "built-in, no key needed".green());
+    println!("  17track key:   {}", set_or_dash(&config.track17_api_key));
 }
 
 async fn select_for_waybar(identifier: &str) -> Result<()> {

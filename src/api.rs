@@ -1,4 +1,4 @@
-use crate::models::{Carrier, Parcel, TrackingInfo};
+use crate::models::{Carrier, Parcel, TrackingEvent, TrackingInfo};
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -45,6 +45,7 @@ pub fn get_carrier_code(carrier: &Carrier) -> i32 {
         Carrier::DHL => 100004,
         Carrier::CanadaPost => 100007,
         Carrier::OnTrac => 100008,
+        Carrier::Amazon => 0, // no 17track support; served by carriers/amazon.rs
         Carrier::Unknown => 0,
     }
 }
@@ -66,11 +67,14 @@ pub async fn register_parcels(
             "dhl" => Carrier::DHL,
             "canada_post" | "canadapost" => Carrier::CanadaPost,
             "ontrac" => Carrier::OnTrac,
+            "amazon" => Carrier::Amazon,
             "auto" => Carrier::detect(&p.tracking_number),
             _ => Carrier::detect(&p.tracking_number),
         };
 
-        if carrier != Carrier::Unknown {
+        // Amazon is excluded like Unknown: 17track cannot track TBA
+        // numbers; those parcels are served by the built-in provider.
+        if carrier != Carrier::Unknown && carrier != Carrier::Amazon {
             requests.push(serde_json::json!({
                 "number": p.tracking_number,
                 "carrier": get_carrier_code(&carrier)
@@ -131,6 +135,10 @@ pub fn get_tracking_url(carrier: &Carrier, tracking_number: &str) -> Option<Stri
             "https://www.ontrac.com/tracking.asp?tracking_number={}",
             tracking_number
         )),
+        Carrier::Amazon => Some(format!(
+            "https://track.amazon.com/tracking/{}",
+            tracking_number
+        )),
         Carrier::Unknown => None,
     }
 }
@@ -138,6 +146,29 @@ pub fn get_tracking_url(carrier: &Carrier, tracking_number: &str) -> Option<Stri
 pub struct Client {
     http_client: reqwest::Client,
     api_key: String,
+}
+
+/// Cheap 17track key check: a lookup for a bogus number. A valid key gets
+/// a code-0 document (with the number rejected inside it); a bad key gets
+/// a non-zero auth code.
+pub async fn validate_key(http: &reqwest::Client, key: &str) -> Result<()> {
+    let resp = http
+        .post("https://api.17track.net/track/v2.4/gettrackinfo")
+        .header("Content-Type", "application/json")
+        .header("17token", key)
+        .json(&serde_json::json!([{ "number": "0000000000" }]))
+        .send()
+        .await?;
+    let json: serde_json::Value = resp.json().await?;
+    match json.get("code").and_then(|c| c.as_i64()) {
+        Some(0) => Ok(()),
+        Some(code) => Err(anyhow!(
+            "17track rejected the key (code {}): {}",
+            code,
+            json.get("message").and_then(|m| m.as_str()).unwrap_or("")
+        )),
+        None => Err(anyhow!("unexpected 17track response")),
+    }
 }
 
 impl Client {
@@ -190,6 +221,7 @@ impl Client {
             "dhl" => Carrier::DHL,
             "canada_post" | "canadapost" => Carrier::CanadaPost,
             "ontrac" => Carrier::OnTrac,
+            "amazon" => Carrier::Amazon,
             "auto" => Carrier::detect(&parcel.tracking_number),
             _ => Carrier::detect(&parcel.tracking_number),
         };
@@ -198,6 +230,11 @@ impl Client {
             return Err(anyhow!(
                 "Could not detect carrier for {}",
                 parcel.tracking_number
+            ));
+        }
+        if carrier == Carrier::Amazon {
+            return Err(anyhow!(
+                "17track does not support Amazon Logistics (TBA) numbers"
             ));
         }
 
@@ -308,6 +345,46 @@ impl Client {
                                 })
                         });
 
+                        // Checkpoint history lives under tracking.providers[0].events;
+                        // keep only entries with a parseable timestamp.
+                        let events: Vec<TrackingEvent> = track_info
+                            .get("tracking")
+                            .and_then(|t| t.get("providers"))
+                            .and_then(|p| p.as_array())
+                            .and_then(|a| a.first())
+                            .and_then(|p| p.get("events"))
+                            .and_then(|e| e.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|ev| {
+                                        let date = ev
+                                            .get("time_utc")
+                                            .and_then(|t| t.as_str())
+                                            .or_else(|| {
+                                                ev.get("time_iso").and_then(|t| t.as_str())
+                                            })
+                                            .and_then(|s| {
+                                                chrono::DateTime::parse_from_rfc3339(s).ok()
+                                            })
+                                            .map(|dt| dt.with_timezone(&chrono::Utc))?;
+                                        Some(TrackingEvent {
+                                            date,
+                                            description: ev
+                                                .get("description")
+                                                .and_then(|d| d.as_str())
+                                                .unwrap_or("")
+                                                .to_string(),
+                                            location: ev
+                                                .get("location")
+                                                .and_then(|l| l.as_str())
+                                                .unwrap_or("")
+                                                .to_string(),
+                                        })
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
                         return Ok(TrackingInfo {
                             status_code: status.clone(),
                             status_text: Some(status),
@@ -317,7 +394,7 @@ impl Client {
                                 .and_then(|l| l.as_str())
                                 .map(|s| s.to_string()),
                             estimated_delivery_date: eta,
-                            events: Vec::new(),
+                            events,
                             raw_data: Some(track_info.clone()),
                         });
                     }

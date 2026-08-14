@@ -1,6 +1,9 @@
 # Parcel Tracker
 
-A Rust CLI with TUI for tracking parcels using the 17track API.
+A Rust CLI with TUI for tracking parcels. Amazon Logistics (TBA…)
+parcels are tracked first-party via the public track.amazon.com
+recipient endpoint — no key needed. Every other carrier is tracked
+through the 17track aggregator API, which requires a key.
 
 ## Features
 
@@ -14,7 +17,11 @@ A Rust CLI with TUI for tracking parcels using the 17track API.
   widget (state-colored badge, shipment list, checkpoint timelines). It is
   installed by the dotfiles quattro phase, which copies this directory to
   `~/.config/omarchy/plugins/kayleg.parcel/`. Logic tests:
-  `cd omarchy-plugin && node tests/model.test.js`
+  `cd omarchy-plugin && node tests/model.test.js`. Expanding a parcel row
+  shows a mini-map of its checkpoint route — arcs connect each stop,
+  ending at the current position (Nominatim geocoding + OSM tiles via
+  `mapdata.sh`, cached in `~/.cache/parceltracker/map`; toggle with the
+  `showMap` widget setting).
 - **Auto-detection**: Automatically detect carrier from tracking number patterns
 - **2-hour timeout**: Selected delivered parcels are kept for 2 hours, then cleared
 
@@ -28,16 +35,23 @@ cp target/release/parceltracker ~/.local/bin/
 
 ## Configuration
 
-Create `~/.local/share/parceltracker/config.json`:
+Amazon parcels need no configuration. For everything else, the
+interactive wizard walks through getting a 17track key, validates it
+live, and saves it (also reachable by pressing `s` in the TUI):
 
-```json
-{
-  "api_key": "your_17track_api_key_here",
-  "waybar_selected": null
-}
+```bash
+parceltracker setup
 ```
 
-Get your API key from [17track.net](https://api.17track.net).
+Or set the key directly (stored in
+`~/.local/share/parceltracker/config.json`; run with no flags to see
+what is configured):
+
+```bash
+# 17track key from https://api.17track.net (paid; new accounts get a
+# one-time 200 free tracking numbers)
+parceltracker config --track17-key <key>
+```
 
 ## Usage
 
@@ -50,7 +64,9 @@ parceltracker add <tracking> [description]   # Add a parcel
 parceltracker remove <position|tracking>     # Remove a parcel
 parceltracker rename <position|tracking> <new_name>  # Rename a parcel
 parceltracker list              # List all parcels (text table)
-parceltracker update            # Update tracking info from API
+parceltracker update            # Update tracking (first-party APIs, then 17track)
+parceltracker setup             # Interactive wizard: get + validate API keys
+parceltracker config [flags]    # Show or set API credentials
 parceltracker select <position|tracking>     # Select for waybar
 parceltracker unselect          # Clear waybar selection
 parceltracker waybar            # Output waybar JSON
@@ -81,6 +97,9 @@ parceltracker status --waybar   # Same as waybar (for waybar config)
 
 ## Supported Carriers
 
+- Amazon Logistics: `TBA` prefix + 10-15 digits — tracked via the public
+  track.amazon.com recipient endpoint, no key needed (unofficial, so it
+  may need a parser update if Amazon changes the response)
 - UPS: `1Z` prefix + 16 alphanumeric
 - FedEx: 12, 15, 20, 22, or 34 digits
 - DHL: 10 digits or JJ/JD/JM prefix

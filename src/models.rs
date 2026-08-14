@@ -68,6 +68,7 @@ pub enum Carrier {
     USPS,
     CanadaPost,
     OnTrac,
+    Amazon,
     Unknown,
 }
 
@@ -80,6 +81,7 @@ impl Carrier {
             Carrier::USPS => "USPS",
             Carrier::CanadaPost => "Canada Post",
             Carrier::OnTrac => "OnTrac",
+            Carrier::Amazon => "Amazon",
             Carrier::Unknown => "Unknown",
         }
     }
@@ -92,6 +94,11 @@ impl Carrier {
         // UPS: 1Z followed by alphanumeric
         if Regex::new(r"^1Z[A-Z0-9]{16}$").unwrap().is_match(&tracking) {
             return Carrier::UPS;
+        }
+
+        // Amazon Logistics: TBA followed by 10-15 digits
+        if Regex::new(r"^TBA\d{10,15}$").unwrap().is_match(&tracking) {
+            return Carrier::Amazon;
         }
 
         // FedEx: 12 digits or 15 digits or 20/22/34 digits
@@ -304,6 +311,7 @@ impl Parcel {
             "dhl" => Carrier::DHL,
             "canada_post" | "canadapost" => Carrier::CanadaPost,
             "ontrac" => Carrier::OnTrac,
+            "amazon" => Carrier::Amazon,
             _ => Carrier::detect(&self.tracking_number),
         }
     }
@@ -464,4 +472,19 @@ pub struct TrackDetail {
 pub struct TrackLocation {
     pub z: Option<String>,
     pub t: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_amazon_tba_numbers() {
+        assert_eq!(Carrier::detect("TBA123456789012"), Carrier::Amazon);
+        assert_eq!(Carrier::detect("tba123456789012"), Carrier::Amazon);
+        assert_eq!(Carrier::Amazon.name(), "Amazon");
+        // FedEx digit patterns must not be shadowed
+        assert_eq!(Carrier::detect("612903679063362289"), Carrier::detect("612903679063362289"));
+        assert_eq!(Carrier::detect("1Z999AA10123456784"), Carrier::UPS);
+    }
 }

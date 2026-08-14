@@ -28,6 +28,83 @@ BarWidget {
     return Math.min(3600, Math.max(15, Math.round(v)))
   }
   readonly property bool showLabel: setting("showLabel", true) === true
+  readonly property bool showMap: setting("showMap", true) === true
+  readonly property bool themedMap: setting("themedMap", true) === true
+
+  // Popup mini-map state: the expanded row's latest checkpoint location is
+  // geocoded and rendered from cached OSM tiles (fetched by mapdata.sh).
+  readonly property int mapZoom: 11    // deepest zoom the route fit may pick
+  property var mapView: null
+  property bool mapReady: false
+  readonly property string mapCacheDir: {
+    var xdg = Quickshell.env("XDG_CACHE_HOME")
+    return (xdg && xdg.length > 0 ? xdg : Quickshell.env("HOME") + "/.cache") + "/parceltracker/map"
+  }
+  readonly property string mapScript: Qt.resolvedUrl("mapdata.sh").toString().replace(/^file:\/\//, "")
+
+  function clearMap() {
+    mapReady = false
+    mapView = null
+  }
+
+  function requestMap(route) {
+    clearMap()
+    if (!showMap || !route || route.length === 0) return
+    geocodeProc.command = ["bash", mapScript, "geocode-many"].concat(route)
+    geocodeProc.running = true
+  }
+
+  function applyGeocode(raw) {
+    if (expandedId === "") return
+    var scene = Model.mapScene(Model.parseGeocodeMany(raw),
+                               col.width - Style.space(46), Style.space(140), mapZoom)
+    if (scene === null) return
+    mapView = scene
+    fetchMapTiles()
+  }
+
+  function colorHex(c) {
+    function h(v) {
+      var s = Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16)
+      return s.length === 1 ? "0" + s : s
+    }
+    return "#" + h(c.r) + h(c.g) + h(c.b)
+  }
+
+  // Fetch (and, for themed mode, recolor) the current scene's tiles.
+  // Qt 6's Canvas putImageData is a silent no-op, so theming happens on
+  // disk: mapdata.sh maps each tile's grayscale onto ink..background with
+  // ImageMagick, cached per color pair. mapTileDir is the single source
+  // of truth for where tilePath() reads from.
+  property string mapTileDir: ""
+  function fetchMapTiles() {
+    if (mapView === null) return
+    mapReady = false
+    var args = ["bash", mapScript]
+    if (themedMap) {
+      var bg = Color.popups.background
+      var fg = Color.popups.text
+      var ink = Qt.rgba(fg.r + (bg.r - fg.r) * 0.15,
+                        fg.g + (bg.g - fg.g) * 0.15,
+                        fg.b + (bg.b - fg.b) * 0.15, 1)
+      var bgHex = colorHex(bg)
+      var inkHex = colorHex(ink)
+      mapTileDir = mapCacheDir + "/themed/"
+        + (bgHex + inkHex).replace(/#/g, "") + "/" + mapView.zoom
+      args = args.concat(["tiles-themed", String(mapView.zoom), bgHex, inkHex])
+    } else {
+      mapTileDir = mapCacheDir + "/tiles/" + mapView.zoom
+      args = args.concat(["tiles", String(mapView.zoom)])
+    }
+    for (var i = 0; i < mapView.tiles.length; i++)
+      args.push(mapView.tiles[i].x + ":" + mapView.tiles[i].y)
+    tileProc.command = args
+    tileProc.running = true
+  }
+
+  function tilePath(tile) {
+    return "file://" + mapTileDir + "/" + tile.x + "-" + tile.y + ".png"
+  }
 
   function roleColor(role, fallback) {
     if (role === "urgent") return Color.urgent
@@ -70,6 +147,16 @@ BarWidget {
     id: statusProc
     command: ["parceltracker", "status", "--json"]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.applyStatus(text) }
+  }
+
+  Process {
+    id: geocodeProc
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.applyGeocode(text) }
+  }
+
+  Process {
+    id: tileProc
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.mapReady = text.indexOf("ok") === 0 }
   }
 
   Timer {
@@ -156,8 +243,8 @@ BarWidget {
     bar: root.bar
     owner: root
     contentWidth: Style.space(340)
-    contentHeight: Math.min(col.implicitHeight + padding * 2, Style.space(520))
-    onOpenChanged: if (open) { root.expandedId = ""; root.refresh() }
+    contentHeight: Math.min(col.implicitHeight + padding * 2, Style.space(620))
+    onOpenChanged: if (open) { root.expandedId = ""; root.clearMap(); root.refresh() }
 
     Column {
       id: col
@@ -167,7 +254,7 @@ BarWidget {
       // ------------------------------------------------------------- hero
       Row {
         width: parent.width
-        spacing: Style.spacing.sm
+        spacing: Style.spacing.xxl
         visible: root.view.hero !== null
 
         Text {
@@ -238,14 +325,22 @@ BarWidget {
               MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.expandedId = rowRoot.expanded ? "" : rowRoot.modelData.id
+                onClicked: {
+                  if (rowRoot.expanded) {
+                    root.expandedId = ""
+                    root.clearMap()
+                  } else {
+                    root.expandedId = rowRoot.modelData.id
+                    root.requestMap(rowRoot.modelData.route)
+                  }
+                }
               }
 
               Row {
                 id: rowLine
                 width: parent.width
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Style.spacing.sm
+                spacing: Style.spacing.xxl
 
                 Rectangle {
                   anchors.verticalCenter: parent.verticalCenter
@@ -266,7 +361,7 @@ BarWidget {
                 }
 
                 Column {
-                  width: parent.width - Style.space(38) - eta.width - Style.spacing.sm * 2
+                  width: parent.width - Style.space(38) - eta.width - Style.spacing.xxl * 2
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: 1
                   Text {
@@ -306,6 +401,94 @@ BarWidget {
               width: parent.width
               spacing: Style.spacing.xs
               leftPadding: Style.space(46)
+
+              // Mini-map of the latest checkpoint, once its tiles are cached.
+              Rectangle {
+                visible: rowRoot.expanded && root.mapReady && root.mapView !== null
+                width: parent.width - Style.space(46)
+                height: root.mapView ? root.mapView.height : 0
+                color: "transparent"
+                border.width: 1
+                border.color: Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.25)
+
+                Item {
+                  anchors.fill: parent
+                  anchors.margins: 1
+                  clip: true
+
+                  // Tiles, route arcs, and checkpoint dots in one canvas.
+                  // Tiles arrive already theme-recolored from mapdata.sh;
+                  // a theme swap refetches them for the new color pair.
+                  Canvas {
+                    anchors.fill: parent
+                    property var scene: root.mapReady ? root.mapView : null
+                    property color themeBg: Color.popups.background
+                    property color themeFg: Color.popups.text
+                    onSceneChanged: requestPaint()
+                    onThemeBgChanged: root.fetchMapTiles()
+                    onThemeFgChanged: root.fetchMapTiles()
+                    onImageLoaded: requestPaint()
+                    onPaint: {
+                      var ctx = getContext("2d")
+                      ctx.reset()
+                      if (!scene) return
+                      var i
+                      for (i = 0; i < scene.tiles.length; i++) {
+                        var url = root.tilePath(scene.tiles[i])
+                        if (isImageLoaded(url))
+                          ctx.drawImage(url, scene.tiles[i].px, scene.tiles[i].py, 256, 256)
+                        else
+                          loadImage(url)
+                      }
+                      if (!root.themedMap) {
+                        // raw OSM colors: just soften toward the popup bg
+                        ctx.fillStyle = Qt.rgba(themeBg.r, themeBg.g, themeBg.b, 0.18)
+                        ctx.fillRect(0, 0, width, height)
+                      }
+                      var c = rowRoot.rowColor
+                      ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.85)
+                      ctx.fillStyle = Qt.rgba(c.r, c.g, c.b, 1)
+                      ctx.lineWidth = 2
+                      var segs = scene.segments
+                      for (i = 0; i < segs.length; i++) {
+                        ctx.beginPath()
+                        ctx.moveTo(segs[i].x1, segs[i].y1)
+                        ctx.quadraticCurveTo(segs[i].cx, segs[i].cy, segs[i].x2, segs[i].y2)
+                        ctx.stroke()
+                      }
+                      for (i = 0; i < scene.markers.length - 1; i++) {
+                        ctx.beginPath()
+                        ctx.arc(scene.markers[i].px, scene.markers[i].py, 3, 0, Math.PI * 2)
+                        ctx.fill()
+                      }
+                    }
+                  }
+
+                  // Current position: the route's newest point.
+                  Rectangle {
+                    visible: root.mapReady && root.mapView !== null && root.mapView.markers.length > 0
+                    x: visible ? root.mapView.markers[root.mapView.markers.length - 1].px - width / 2 : 0
+                    y: visible ? root.mapView.markers[root.mapView.markers.length - 1].py - height / 2 : 0
+                    width: Style.space(12)
+                    height: width
+                    radius: width / 2
+                    color: rowRoot.rowColor
+                    border.width: 2
+                    border.color: "#ffffff"
+                  }
+
+                  Text {
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 2
+                    text: "© OpenStreetMap"
+                    color: root.themedMap ? Color.popups.text : "#000000"
+                    opacity: 0.55
+                    font.family: Style.font.family
+                    font.pixelSize: Math.max(8, Style.font.caption - 2)
+                  }
+                }
+              }
 
               Repeater {
                 model: rowRoot.expanded ? rowRoot.modelData.events.slice(0, 5) : []

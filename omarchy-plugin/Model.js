@@ -26,6 +26,14 @@ function stateLabel(state) {
   return "No updates yet"
 }
 
+// Carrier status strings arrive as raw API codes ("InTransit",
+// "Delivered_Other"); split the camel case and underscores for display.
+function humanizeStatus(text) {
+  if (!text) return ""
+  var s = String(text).replace(/_/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+}
+
 function carrierMonogram(carrier) {
   var map = {
     "UPS": "UPS",
@@ -33,7 +41,8 @@ function carrierMonogram(carrier) {
     "USPS": "USPS",
     "DHL": "DHL",
     "Canada Post": "CP",
-    "OnTrac": "OT"
+    "OnTrac": "OT",
+    "Amazon": "AMZ"
   }
   return map[carrier] || "PKG"
 }
@@ -88,13 +97,13 @@ function heroSubtitle(parcel) {
   if (!parcel) return ""
   if (parcel.state === "delivered") return "Delivered"
   if (parcel.etaLabel) return parcel.etaLabel
-  return parcel.statusText || stateLabel(parcel.state)
+  return humanizeStatus(parcel.statusText) || stateLabel(parcel.state)
 }
 
 function rowDetail(parcel, nowMs) {
   var event = (parcel.events && parcel.events.length > 0) ? parcel.events[0] : null
   var parts = []
-  if (parcel.statusText) parts.push(parcel.statusText)
+  if (parcel.statusText) parts.push(humanizeStatus(parcel.statusText))
   else parts.push(stateLabel(parcel.state))
   if (event && event.location) parts.push(event.location)
   else if (parcel.location) parts.push(parcel.location)
@@ -103,6 +112,187 @@ function rowDetail(parcel, nowMs) {
     if (ago) parts.push(ago)
   }
   return parts.join(" · ")
+}
+
+// ------------------------------------------------------------------- map
+// Slippy-map support for the popup mini-map. The widget geocodes the
+// parcel's checkpoint route (Nominatim, via mapdata.sh) and renders
+// standard 256px OSM tiles with the route fitted into the viewport and
+// arcs connecting consecutive checkpoints.
+
+function parseGeocode(raw) {
+  try {
+    var arr = typeof raw === "string" ? JSON.parse(raw) : raw
+    if (!Array.isArray(arr) || arr.length === 0) return null
+    var lat = Number(arr[0].lat)
+    var lon = Number(arr[0].lon)
+    if (!isFinite(lat) || !isFinite(lon)) return null
+    return { lat: lat, lon: lon }
+  } catch (e) {
+    return null
+  }
+}
+
+// mapdata.sh geocode-many prints an array of per-location Nominatim
+// results (null where the lookup failed). Failed entries drop out.
+function parseGeocodeMany(raw) {
+  try {
+    var arr = typeof raw === "string" ? JSON.parse(raw) : raw
+    if (!Array.isArray(arr)) return []
+    var out = []
+    for (var i = 0; i < arr.length; i++) {
+      var geo = arr[i] === null ? null : parseGeocode(arr[i])
+      if (geo !== null) out.push(geo)
+    }
+    return out
+  } catch (e) {
+    return []
+  }
+}
+
+// Ordered checkpoint locations for the mini-map route, oldest first.
+// Events arrive newest-first; consecutive repeats collapse, and bare
+// country codes ("US") are too vague to geocode usefully.
+function routeLocations(parcel) {
+  var out = []
+  var evs = parcel.events || []
+  for (var i = evs.length - 1; i >= 0; i--) {
+    var loc = evs[i] && evs[i].location
+    if (!loc) continue
+    if (loc.indexOf(",") < 0 && loc.length <= 3) continue
+    if (out.length === 0 || out[out.length - 1] !== loc) out.push(loc)
+  }
+  if (out.length === 0 && parcel.location) out.push(parcel.location)
+  return out.slice(-12)
+}
+
+// Tile grid covering a viewport whose top-left sits at originX/originY in
+// world pixels. Tile x wraps across the antimeridian; rows beyond the
+// poles are omitted (drawn as blank).
+function tileGrid(originX, originY, width, height, n) {
+  var tiles = []
+  var ty0 = Math.floor(originY / 256)
+  var ty1 = Math.ceil((originY + height) / 256) - 1
+  var tx0 = Math.floor(originX / 256)
+  var tx1 = Math.ceil((originX + width) / 256) - 1
+  for (var ty = ty0; ty <= ty1; ty++) {
+    if (ty < 0 || ty >= n) continue
+    for (var tx = tx0; tx <= tx1; tx++) {
+      tiles.push({
+        x: ((tx % n) + n) % n,
+        y: ty,
+        px: tx * 256 - originX,
+        py: ty * 256 - originY
+      })
+    }
+  }
+  return tiles
+}
+
+// Tiles covering a width×height viewport centered on a single lat/lon.
+function mapLayout(lat, lon, zoom, width, height) {
+  var n = Math.pow(2, zoom)
+  var xf = ((lon + 180) / 360) * n
+  var latRad = (lat * Math.PI) / 180
+  var yf = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
+  var originX = xf * 256 - width / 2
+  var originY = yf * 256 - height / 2
+  return {
+    zoom: zoom,
+    width: width,
+    height: height,
+    tiles: tileGrid(originX, originY, width, height, n)
+  }
+}
+
+// Quadratic arcs between consecutive markers, bulging away from the
+// straight line (upward where possible) for the route drawing.
+function arcSegments(markers) {
+  var segs = []
+  for (var i = 0; i + 1 < markers.length; i++) {
+    var a = markers[i]
+    var b = markers[i + 1]
+    var dx = b.px - a.px
+    var dy = b.py - a.py
+    var dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < 2) continue
+    var k = Math.min(40, Math.max(8, dist * 0.25))
+    var ux = -dy / dist
+    var uy = dx / dist
+    if (uy > 0) { ux = -ux; uy = -uy }
+    segs.push({
+      x1: a.px, y1: a.py,
+      cx: (a.px + b.px) / 2 + ux * k,
+      cy: (a.py + b.py) / 2 + uy * k,
+      x2: b.px, y2: b.py
+    })
+  }
+  return segs
+}
+
+// Fit a whole route into the viewport: pick the deepest zoom that keeps
+// every point inside the padded viewport, center on the route's bounding
+// box, and return tiles plus per-point pixel markers and connecting arcs.
+// Longitudes are unwrapped so Pacific-crossing routes stay contiguous.
+function mapScene(points, width, height, maxZoom) {
+  if (!points || points.length === 0) return null
+  var lons = [points[0].lon]
+  for (var i = 1; i < points.length; i++) {
+    var l = points[i].lon
+    while (l - lons[i - 1] > 180) l -= 360
+    while (l - lons[i - 1] < -180) l += 360
+    lons.push(l)
+  }
+  var base = []
+  for (i = 0; i < points.length; i++) {
+    var latRad = (points[i].lat * Math.PI) / 180
+    base.push({
+      x: (lons[i] + 180) / 360,
+      y: (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2
+    })
+  }
+  var pad = 24
+  var zoom = Math.min(10, maxZoom)
+  if (points.length > 1) {
+    zoom = 1
+    for (var z = maxZoom; z >= 1; z--) {
+      var s = 256 * Math.pow(2, z)
+      var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+      for (i = 0; i < base.length; i++) {
+        minX = Math.min(minX, base[i].x * s); maxX = Math.max(maxX, base[i].x * s)
+        minY = Math.min(minY, base[i].y * s); maxY = Math.max(maxY, base[i].y * s)
+      }
+      if (maxX - minX <= width - pad * 2 && maxY - minY <= height - pad * 2) {
+        zoom = z
+        break
+      }
+    }
+  }
+  var n = Math.pow(2, zoom)
+  var scale = 256 * n
+  var loX = Infinity, hiX = -Infinity, loY = Infinity, hiY = -Infinity
+  for (i = 0; i < base.length; i++) {
+    loX = Math.min(loX, base[i].x * scale); hiX = Math.max(hiX, base[i].x * scale)
+    loY = Math.min(loY, base[i].y * scale); hiY = Math.max(hiY, base[i].y * scale)
+  }
+  var originX = (loX + hiX) / 2 - width / 2
+  var originY = (loY + hiY) / 2 - height / 2
+  var markers = []
+  for (i = 0; i < base.length; i++) {
+    var px = base[i].x * scale - originX
+    var py = base[i].y * scale - originY
+    var prev = markers[markers.length - 1]
+    if (prev && Math.abs(prev.px - px) < 3 && Math.abs(prev.py - py) < 3) continue
+    markers.push({ px: px, py: py })
+  }
+  return {
+    zoom: zoom,
+    width: width,
+    height: height,
+    tiles: tileGrid(originX, originY, width, height, n),
+    markers: markers,
+    segments: arcSegments(markers)
+  }
 }
 
 function buildView(doc, nowMs) {
@@ -122,6 +312,8 @@ function buildView(doc, nowMs) {
       role: stateRole(p.state),
       stateLabel: stateLabel(p.state),
       etaLabel: p.etaLabel || "",
+      location: (p.events && p.events[0] && p.events[0].location) || p.location || "",
+      route: routeLocations(p),
       detail: rowDetail(p, nowMs),
       trackingUrl: p.trackingUrl || "",
       events: p.events || [],
@@ -167,11 +359,17 @@ if (typeof module !== "undefined" && module.exports)
     parseStatus: parseStatus,
     stateRole: stateRole,
     stateLabel: stateLabel,
+    humanizeStatus: humanizeStatus,
     carrierMonogram: carrierMonogram,
     orderParcels: orderParcels,
     pickHero: pickHero,
     relativeTime: relativeTime,
     heroSubtitle: heroSubtitle,
+    parseGeocode: parseGeocode,
+    parseGeocodeMany: parseGeocodeMany,
+    routeLocations: routeLocations,
+    mapLayout: mapLayout,
+    mapScene: mapScene,
     buildView: buildView,
     buildTooltip: buildTooltip,
     barLabel: barLabel

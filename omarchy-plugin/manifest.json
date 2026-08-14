@@ -15,7 +15,9 @@
     "allowMultiple": false,
     "defaults": {
       "refreshIntervalSec": 60,
-      "showLabel": true
+      "showLabel": true,
+      "showMap": true,
+      "themedMap": true
     },
     "schema": [
       {
@@ -34,6 +36,20 @@
         "label": "Show parcel label in the bar",
         "defaultValue": true,
         "description": "Show the lead parcel's name and ETA next to the icon on horizontal bars. Off = icon only."
+      },
+      {
+        "key": "showMap",
+        "type": "boolean",
+        "label": "Show checkpoint map in the popup",
+        "defaultValue": true,
+        "description": "Show a small OpenStreetMap view of a parcel's checkpoint route (arcs connecting each stop) when its row is expanded. Geocoding and map tiles come from openstreetmap.org and are cached locally."
+      },
+      {
+        "key": "themedMap",
+        "type": "boolean",
+        "label": "Match map colors to the theme",
+        "defaultValue": true,
+        "description": "Recolor map tiles onto the popup's background and text colors so the map follows the active theme (dark themes get a dark map). Off = standard OpenStreetMap colors."
       }
     ]
   }
