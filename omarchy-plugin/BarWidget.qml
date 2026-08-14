@@ -537,7 +537,8 @@ BarWidget {
       PanelSeparator { visible: root.view.count > 0; foreground: Color.popups.text }
 
       // ------------------------------------------------------------ footer
-      Row {
+      Flow {
+        width: parent.width
         spacing: Style.spacing.sm
         ActionChip {
           label: updateSettle.running ? "Refreshing…" : "Refresh from carrier"
@@ -548,6 +549,13 @@ BarWidget {
           visible: root.view.hero !== null && root.view.hero.trackingUrl !== ""
           label: "Open tracking page"
           onActivated: { root.openTracking(root.view.hero.trackingUrl); detail.open = false }
+        }
+        ActionChip {
+          label: "Open TUI"
+          onActivated: {
+            if (root.bar) root.bar.run("omarchy launch or focus tui parceltracker")
+            detail.open = false
+          }
         }
       }
     }
