@@ -14,8 +14,14 @@ through the 17track aggregator API, which requires a key.
   document (states, ETAs, checkpoint events, tracking URLs) — the contract
   behind the Omarchy shell plugin
 - **Omarchy Quattro plugin**: `omarchy-plugin/` is a `kayleg.parcel` bar
-  widget (state-colored badge, shipment list, checkpoint timelines). It is
-  installed by the dotfiles quattro phase, which copies this directory to
+  widget (state-colored badge, shipment list, checkpoint timelines),
+  published for installation as
+  [kayleg/omarchy-parcel](https://github.com/kayleg/omarchy-parcel)
+  (`omarchy plugin add https://github.com/kayleg/omarchy-parcel.git`),
+  which is split from this directory via
+  `git subtree split --prefix=omarchy-plugin -b plugin-split` and pushed
+  to that repo's `main`. Locally it is installed by the dotfiles quattro
+  phase, which copies this directory to
   `~/.config/omarchy/plugins/kayleg.parcel/`. Logic tests:
   `cd omarchy-plugin && node tests/model.test.js`. Expanding a parcel row
   shows a mini-map of its checkpoint route — arcs connect each stop,
