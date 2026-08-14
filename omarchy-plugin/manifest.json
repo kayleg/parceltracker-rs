@@ -16,6 +16,7 @@
     "defaults": {
       "refreshIntervalSec": 60,
       "showLabel": true,
+      "minimal": false,
       "showMap": true,
       "themedMap": true
     },
@@ -36,6 +37,13 @@
         "label": "Show parcel label in the bar",
         "defaultValue": true,
         "description": "Show the lead parcel's name and ETA next to the icon on horizontal bars. Off = icon only."
+      },
+      {
+        "key": "minimal",
+        "type": "boolean",
+        "label": "Minimal: status icon only",
+        "defaultValue": false,
+        "description": "Show only a state-colored status icon in the bar — package in transit, truck out for delivery, check delivered, warning on exceptions. Overrides the label setting."
       },
       {
         "key": "showMap",

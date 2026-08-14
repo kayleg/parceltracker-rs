@@ -61,6 +61,15 @@ test("state → color roles", () => {
   assert.strictEqual(Model.stateRole("pre-transit"), "foreground")
 })
 
+test("state glyphs: minimal-mode icon per state", () => {
+  const states = ["out-for-delivery", "delivered", "exception", "in-transit"]
+  const glyphs = states.map(s => Model.stateGlyph(s))
+  assert.ok(glyphs.every(g => typeof g === "string" && g.length > 0))
+  assert.strictEqual(new Set(glyphs).size, 4)          // each state distinct
+  assert.strictEqual(Model.stateGlyph("pre-transit"), Model.stateGlyph("in-transit"))
+  assert.strictEqual(Model.stateGlyph(""), Model.stateGlyph("in-transit"))
+})
+
 test("carrier monograms", () => {
   assert.strictEqual(Model.carrierMonogram("UPS"), "UPS")
   assert.strictEqual(Model.carrierMonogram("FedEx"), "FDX")

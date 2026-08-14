@@ -28,6 +28,7 @@ BarWidget {
     return Math.min(3600, Math.max(15, Math.round(v)))
   }
   readonly property bool showLabel: setting("showLabel", true) === true
+  readonly property bool minimal: setting("minimal", false) === true
   readonly property bool showMap: setting("showMap", true) === true
   readonly property bool themedMap: setting("themedMap", true) === true
 
@@ -221,6 +222,9 @@ BarWidget {
     useActiveColor: false
     fontSize: Style.font.body
     text: {
+      // Minimal mode: a lone state-colored status icon, no name or text.
+      if (root.minimal)
+        return Model.stateGlyph(root.view && root.view.hero ? root.view.hero.state : "")
       var glyph = "󰏓"   // 󰏓 nf-md-package_variant_closed
       if (root.vertical || !root.showLabel || !root.view || !root.view.hero) return glyph
       return glyph + "  " + Model.barLabel(root.view)

@@ -17,6 +17,17 @@ function stateRole(state) {
   return "foreground"
 }
 
+// Bar glyph for minimal mode: the state itself becomes the icon.
+// Escapes because PUA glyphs are invisible in editors: truck (nf-fa-truck
+// f0d1), check (nf-fa-check f00c), warning (nf-fa-warning f071), and the
+// nf-md-package_variant_closed the widget already uses (f03d3).
+function stateGlyph(state) {
+  if (state === "out-for-delivery") return "\uf0d1"
+  if (state === "delivered") return "\uf00c"
+  if (state === "exception") return "\uf071"
+  return "\u{f03d3}"
+}
+
 function stateLabel(state) {
   if (state === "out-for-delivery") return "Out for delivery"
   if (state === "in-transit") return "In transit"
@@ -358,6 +369,7 @@ if (typeof module !== "undefined" && module.exports)
     shellQuote: shellQuote,
     parseStatus: parseStatus,
     stateRole: stateRole,
+    stateGlyph: stateGlyph,
     stateLabel: stateLabel,
     humanizeStatus: humanizeStatus,
     carrierMonogram: carrierMonogram,
