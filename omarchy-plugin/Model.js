@@ -155,8 +155,15 @@ function barLabel(view) {
   return view.hero.description + " · " + heroSubtitle(view.hero)
 }
 
+// POSIX single-quote escaping for values interpolated into bar.run() commands
+// (which execute via `bash -lc`).
+function shellQuote(value) {
+  return "'" + String(value).replace(/'/g, "'\\''") + "'"
+}
+
 if (typeof module !== "undefined" && module.exports)
   module.exports = {
+    shellQuote: shellQuote,
     parseStatus: parseStatus,
     stateRole: stateRole,
     stateLabel: stateLabel,

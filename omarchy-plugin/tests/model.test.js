@@ -104,4 +104,12 @@ test("live capture from this machine builds a view", () => {
   assert.ok(view.rows[0].monogram.length >= 2)
 })
 
+test("shellQuote survives bash -lc round trips", () => {
+  assert.strictEqual(
+    Model.shellQuote("https://ups.com/track?tracknum=1Z&x=y"),
+    "'https://ups.com/track?tracknum=1Z&x=y'")
+  assert.strictEqual(Model.shellQuote("it's here"), "'it'\\''s here'")
+  assert.strictEqual(Model.shellQuote(""), "''")
+})
+
 process.exit(failures === 0 ? 0 : 1)

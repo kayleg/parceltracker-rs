@@ -58,7 +58,7 @@ BarWidget {
 
   function openTracking(url) {
     if (!root.bar || !url) return
-    root.bar.run("xdg-open " + root.bar.shellQuote(url))
+    root.bar.run("xdg-open " + Model.shellQuote(url))
   }
 
   function updateFromCarrier() {
@@ -93,11 +93,13 @@ BarWidget {
   component ActionChip: Rectangle {
     id: chip
     property string label: ""
+    property bool interactive: true
     signal activated()
+    opacity: interactive ? 1 : 0.5
     implicitWidth: chipText.implicitWidth + Style.space(16)
     implicitHeight: chipText.implicitHeight + Style.space(10)
     radius: Style.cornerRadius > 0 ? Math.min(Style.cornerRadius, height / 2) : 4
-    color: chipMouse.containsMouse
+    color: chipMouse.containsMouse && chip.interactive
       ? Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.12)
       : "transparent"
     border.width: 1
@@ -113,8 +115,9 @@ BarWidget {
     MouseArea {
       id: chipMouse
       anchors.fill: parent
+      enabled: chip.interactive
       hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
+      cursorShape: chip.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
       onClicked: chip.activated()
     }
   }
@@ -354,7 +357,8 @@ BarWidget {
       Row {
         spacing: Style.spacing.sm
         ActionChip {
-          label: "Refresh from carrier"
+          label: updateSettle.running ? "Refreshing…" : "Refresh from carrier"
+          interactive: !updateSettle.running
           onActivated: root.updateFromCarrier()
         }
         ActionChip {
