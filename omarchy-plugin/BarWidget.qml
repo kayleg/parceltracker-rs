@@ -309,10 +309,22 @@ BarWidget {
           font.pixelSize: Style.font.subtitle
         }
       }
+      // One-click CLI install: runs install-cli.sh in a floating terminal
+      // so the cargo build is visible and attributable to the user.
+      ActionChip {
+        visible: root.cliMissing
+        label: "Install CLI"
+        onActivated: {
+          if (root.bar)
+            root.bar.run("omarchy launch or focus tui --app-id=org.omarchy.parcel-install bash "
+                         + Model.shellQuote(Qt.resolvedUrl("install-cli.sh").toString().replace(/^file:\/\//, "")))
+          detail.open = false
+        }
+      }
       Text {
         visible: root.view.hero === null && (root.loaded || root.cliMissing)
         text: root.cliMissing
-          ? "cargo install --git https://github.com/kayleg/parceltracker-rs"
+          ? "or: cargo install --git https://github.com/kayleg/parceltracker-rs"
           : "parceltracker add <tracking> [description]"
         color: Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.6)
         font.family: Style.font.family

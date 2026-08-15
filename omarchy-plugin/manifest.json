@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "kayleg.parcel",
   "name": "Parcel",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "kayleg",
   "license": "MIT",
   "description": "Parcel tracking in the Omarchy bar, backed by the parceltracker CLI: state-colored badge, shipment list with ETAs, checkpoint timelines, and a theme-colored route map for each parcel.",

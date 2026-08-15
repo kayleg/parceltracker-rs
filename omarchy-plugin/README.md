@@ -30,8 +30,9 @@ The widget is a front-end for the
 [parceltracker](https://github.com/kayleg/parceltracker-rs) CLI, which
 owns the parcel list and talks to the tracking APIs. Omarchy's plugin
 installer never runs code, so the CLI is not installed automatically —
-install it yourself (the popup shows this command if the CLI is
-missing):
+if it is missing, the popup offers an **Install CLI** button that runs
+the build in a floating terminal (needs the Rust toolchain), or install
+it yourself:
 
 ```bash
 cargo install --git https://github.com/kayleg/parceltracker-rs
