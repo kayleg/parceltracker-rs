@@ -5,6 +5,8 @@ parcels are tracked first-party via the public track.amazon.com
 recipient endpoint — no key needed. Every other carrier is tracked
 through the 17track aggregator API, which requires a key.
 
+<img src="omarchy-plugin/preview.png" alt="Omarchy bar widget popup with checkpoint timeline and theme-colored route map" width="400"> <img src="omarchy-plugin/screenshots/popup-light.png" alt="The same popup in a light theme" width="400">
+
 ## Features
 
 - **CLI Commands**: Add, remove, rename, list, and update parcels

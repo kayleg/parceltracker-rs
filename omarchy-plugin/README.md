@@ -5,6 +5,13 @@ shipments in the bar: a state-colored badge for the lead parcel, and a
 popup with every shipment, ETAs, expandable checkpoint timelines, and a
 mini-map of each parcel's route drawn in your theme's colors.
 
+<img src="preview.png" alt="Popup with checkpoint timeline and theme-colored route map" width="420">
+
+The map follows the active theme — the same popup in a light theme, and
+the bar in minimal mode (status icon only, toggleable from the popup):
+
+<img src="screenshots/popup-light.png" alt="Popup in a light theme" width="360"> <img src="screenshots/bar-minimal.png" alt="Minimal bar icon with tooltip" width="360">
+
 - **Badge**: lead parcel (your explicit selection, or the soonest
   arrival), colored by state — accent for out-for-delivery, urgent for
   exceptions, muted once delivered. Left-click opens the popup,
