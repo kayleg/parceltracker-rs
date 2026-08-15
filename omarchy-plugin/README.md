@@ -59,6 +59,17 @@ Then add parcels:
 parceltracker add <tracking-number> "New keyboard"
 ```
 
+To remove the plugin:
+
+```bash
+omarchy plugin remove kayleg.parcel
+```
+
+The CLI and its data are separate: `cargo uninstall parceltracker`
+removes the binary, and `~/.local/share/parceltracker/` plus
+`~/.cache/parceltracker/` hold its state and caches if you want a full
+cleanup.
+
 ## Settings
 
 | Setting | Default | Effect |
