@@ -561,6 +561,17 @@ BarWidget {
             detail.open = false
           }
         }
+        // Persist the toggle through `omarchy bar set`, which patches this
+        // widget's entry in shell.json; the settings hot-reload flips the
+        // bar text live, so the chip label follows automatically.
+        ActionChip {
+          label: root.minimal ? "Show bar label" : "Minimal bar icon"
+          onActivated: {
+            if (root.bar)
+              root.bar.run("omarchy bar set " + root.moduleName + " minimal "
+                           + (root.minimal ? "false" : "true") + " --json")
+          }
+        }
       }
     }
   }
