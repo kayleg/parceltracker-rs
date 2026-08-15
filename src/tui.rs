@@ -87,6 +87,7 @@ pub struct App {
     pub message: Option<String>,
     pub quit: bool,
     pub launch_setup: bool,
+    pub pending_delete: Option<usize>,
     // Update tracking fields
     pub is_updating: bool,
     pub parcels_to_update: usize,
@@ -131,6 +132,7 @@ impl App {
             message: None,
             quit: false,
             launch_setup: false,
+            pending_delete: None,
             is_updating: false,
             parcels_to_update: 0,
             parcels_updated: 0,
@@ -201,6 +203,27 @@ impl App {
             }
         }
 
+        Ok(())
+    }
+
+    fn delete_parcel(&mut self, idx: usize) -> Result<()> {
+        if idx >= self.parcels.len() {
+            return Ok(());
+        }
+        let removed = self.parcels.remove(idx);
+        save_parcels(&self.parcels)?;
+        let was_selected = self.selected_id.as_ref() == Some(&removed.id);
+        if self.parcels.is_empty() {
+            self.table_state.select(None);
+        } else if idx >= self.parcels.len() {
+            self.table_state.select(Some(self.parcels.len() - 1));
+        }
+        if was_selected {
+            self.selected_id = None;
+            self.save_selection()?;
+        }
+        self.row_errors = vec![None; self.parcels.len()];
+        self.message = Some(format!("Removed '{}'", removed.description));
         Ok(())
     }
 
@@ -431,6 +454,16 @@ impl App {
                     return Ok(());
                 }
 
+                // A pending delete captures the next key: only `y` confirms.
+                if let Some(idx) = self.pending_delete {
+                    self.pending_delete = None;
+                    match key.code {
+                        KeyCode::Char('y') | KeyCode::Char('Y') => self.delete_parcel(idx)?,
+                        _ => self.message = Some("Delete cancelled".to_string()),
+                    }
+                    return Ok(());
+                }
+
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => {
                         if self.show_details {
@@ -462,20 +495,11 @@ impl App {
                     KeyCode::Char('d') if !self.show_details => {
                         if let Some(idx) = self.table_state.selected() {
                             if idx < self.parcels.len() {
-                                let removed = self.parcels.remove(idx);
-                                save_parcels(&self.parcels)?;
-                                if self.parcels.is_empty() {
-                                    self.table_state.select(None);
-                                    self.selected_id = None;
-                                } else if idx >= self.parcels.len() {
-                                    self.table_state.select(Some(self.parcels.len() - 1));
-                                }
-                                if self.selected_id.as_ref() == Some(&removed.id) {
-                                    self.selected_id = None;
-                                    self.save_selection()?;
-                                }
-                                self.row_errors = vec![None; self.parcels.len()];
-                                self.message = Some("Parcel removed".to_string());
+                                self.pending_delete = Some(idx);
+                                self.message = Some(format!(
+                                    "Delete '{}'? Press y to confirm, any other key cancels",
+                                    self.parcels[idx].description
+                                ));
                             }
                         }
                     }
