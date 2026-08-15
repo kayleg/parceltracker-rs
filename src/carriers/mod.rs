@@ -8,7 +8,7 @@
 // same vocabulary 17track does ("InTransit", "OutForDelivery",
 // "Delivered", "InfoReceived", "Exception") — Parcel::status_state()
 // classifies by sniffing that text, so emitting the shared vocabulary is
-// what keeps the TUI, waybar, and Omarchy widget working unchanged.
+// what keeps the TUI and Omarchy widget working unchanged.
 
 pub mod amazon;
 

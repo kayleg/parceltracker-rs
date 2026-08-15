@@ -108,7 +108,7 @@ impl App {
 
         let config = load_config()?;
 
-        let selected_id = if let Some(selection) = &config.waybar_selected {
+        let selected_id = if let Some(selection) = &config.bar_selected {
             // Find parcel by tracking number and get its id
             parcels
                 .iter()
@@ -598,13 +598,13 @@ impl App {
         if let Some(id) = &self.selected_id {
             // Find the parcel to get its tracking number
             if let Some(parcel) = self.parcels.iter().find(|p| p.id == *id) {
-                config.waybar_selected = Some(crate::models::WaybarSelection {
+                config.bar_selected = Some(crate::models::BarSelection {
                     tracking: parcel.tracking_number.clone(),
                     timestamp: chrono::Utc::now().to_rfc3339(),
                 });
             }
         } else {
-            config.waybar_selected = None;
+            config.bar_selected = None;
         }
 
         save_config(&config)?;
@@ -688,7 +688,7 @@ impl App {
             .iter()
             .enumerate()
             .map(|(i, parcel)| {
-                let is_selected_for_waybar = self.selected_id.as_ref() == Some(&parcel.id);
+                let is_selected_for_bar = self.selected_id.as_ref() == Some(&parcel.id);
                 let is_delivered = parcel.is_delivered();
 
                 let num = format!("{}.", i + 1);
@@ -724,7 +724,7 @@ impl App {
                     })
                     .unwrap_or_else(|| "-".to_string());
 
-                let desc = if is_selected_for_waybar {
+                let desc = if is_selected_for_bar {
                     format!("★ {}", parcel.description)
                 } else {
                     parcel.description.clone()
@@ -780,7 +780,7 @@ impl App {
         }
 
         let parcel = &self.parcels[idx];
-        let is_waybar_selected = self.selected_id.as_ref() == Some(&parcel.id);
+        let is_bar_selected = self.selected_id.as_ref() == Some(&parcel.id);
 
         let mut lines: Vec<Line> = vec![
             Line::from(vec![
@@ -824,7 +824,7 @@ impl App {
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(if is_waybar_selected { "Yes ★" } else { "No" }),
+                Span::raw(if is_bar_selected { "Yes ★" } else { "No" }),
             ]),
             Line::from(""),
         ];

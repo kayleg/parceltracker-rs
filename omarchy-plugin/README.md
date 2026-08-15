@@ -28,7 +28,10 @@ the bar in minimal mode (status icon only, toggleable from the popup):
 
 The widget is a front-end for the
 [parceltracker](https://github.com/kayleg/parceltracker-rs) CLI, which
-owns the parcel list and talks to the tracking APIs:
+owns the parcel list and talks to the tracking APIs. Omarchy's plugin
+installer never runs code, so the CLI is not installed automatically —
+install it yourself (the popup shows this command if the CLI is
+missing):
 
 ```bash
 cargo install --git https://github.com/kayleg/parceltracker-rs

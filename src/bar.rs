@@ -1,30 +1,9 @@
 use anyhow::Result;
 use chrono::Utc;
-use serde_json::json;
 
-use crate::models::{Parcel, WaybarSelection};
+
+use crate::models::{Parcel, BarSelection};
 use crate::storage::{load_config, save_config};
-
-fn parcel_label(parcel: &Parcel) -> String {
-    let desc = parcel.description.trim();
-    if desc.is_empty() {
-        "Package".to_string()
-    } else {
-        desc.to_string()
-    }
-}
-
-fn eta_or_status(parcel: &Parcel) -> String {
-    if let Some(ref info) = parcel.tracking_info {
-        if let Some(ref date) = info.estimated_delivery_date {
-            format_eta_smart(&date.to_rfc3339())
-        } else {
-            info.status_text()
-        }
-    } else {
-        "Not tracked".to_string()
-    }
-}
 
 pub fn format_eta_smart(eta_str: &str) -> String {
     use chrono::{DateTime, Datelike, Local, Weekday};
@@ -66,9 +45,9 @@ pub fn format_eta_smart(eta_str: &str) -> String {
     }
 }
 
-pub fn resolve_waybar_parcel(parcels: &[Parcel]) -> Result<Option<&Parcel>> {
+pub fn resolve_bar_parcel(parcels: &[Parcel]) -> Result<Option<&Parcel>> {
     let config = load_config()?;
-    let selected = if let Some(selection) = &config.waybar_selected {
+    let selected = if let Some(selection) = &config.bar_selected {
         parcels
             .iter()
             .find(|p| p.tracking_number == selection.tracking)
@@ -78,51 +57,7 @@ pub fn resolve_waybar_parcel(parcels: &[Parcel]) -> Result<Option<&Parcel>> {
     Ok(selected.or_else(|| find_first_arriving(parcels)))
 }
 
-pub fn get_waybar_output(parcels: &[Parcel]) -> Result<String> {
-    let selected_parcel = resolve_waybar_parcel(parcels)?;
-
-    let output = if let Some(parcel) = selected_parcel {
-        let eta_str = eta_or_status(parcel);
-        let emoji = parcel.status_emoji();
-        let text = format!("{} {} · {}", emoji, parcel_label(parcel), eta_str);
-
-        let mut lines = vec![format!("{} {} · {}", emoji, parcel_label(parcel), eta_str)];
-
-        let others: Vec<&Parcel> = parcels
-            .iter()
-            .filter(|p| p.tracking_number != parcel.tracking_number)
-            .collect();
-        if !others.is_empty() {
-            lines.push(String::new());
-            lines.push("Other parcels:".to_string());
-            for p in others {
-                lines.push(format!(
-                    "• {} {} · {}",
-                    p.status_emoji(),
-                    parcel_label(p),
-                    eta_or_status(p)
-                ));
-            }
-        }
-        let tooltip = lines.join("\n");
-
-        json!({
-            "text": text,
-            "tooltip": tooltip,
-            "class": if parcel.is_delivered() { "delivered" } else { "in-transit" },
-        })
-    } else {
-        json!({
-            "text": "",
-            "tooltip": "No parcels tracked",
-            "class": "empty",
-        })
-    };
-
-    Ok(output.to_string())
-}
-
-pub fn select_parcel_for_waybar(parcels: &[Parcel], identifier: &str) -> Result<String> {
+pub fn select_parcel_for_bar(parcels: &[Parcel], identifier: &str) -> Result<String> {
     // Try position first
     let parcel_tracking = if let Ok(pos) = identifier.parse::<usize>() {
         if pos > 0 && pos <= parcels.len() {
@@ -144,13 +79,13 @@ pub fn select_parcel_for_waybar(parcels: &[Parcel], identifier: &str) -> Result<
             .find(|p| p.tracking_number == tracking)
             .unwrap();
 
-        let selection = WaybarSelection {
+        let selection = BarSelection {
             tracking: tracking.clone(),
             timestamp: Utc::now().to_rfc3339(),
         };
 
         let mut config = load_config()?;
-        config.waybar_selected = Some(selection);
+        config.bar_selected = Some(selection);
         save_config(&config)?;
 
         Ok(format!("Selected: {}", parcel.display_name()))
@@ -161,7 +96,7 @@ pub fn select_parcel_for_waybar(parcels: &[Parcel], identifier: &str) -> Result<
 
 pub fn unselect_parcel() -> Result<String> {
     let mut config = load_config()?;
-    config.waybar_selected = None;
+    config.bar_selected = None;
     save_config(&config)?;
     Ok("Selection cleared".to_string())
 }

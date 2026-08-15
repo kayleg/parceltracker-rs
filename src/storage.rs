@@ -137,14 +137,14 @@ pub fn find_parcel_for_selection(parcels: &[Parcel], identifier: &str) -> Option
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WaybarCacheEntry {
+pub struct BarCacheEntry {
     pub parcel_id: String,
     pub delivered_at: Option<DateTime<Utc>>,
     pub cached_at: DateTime<Utc>,
 }
 
-pub fn should_clear_selection(_selection: &crate::models::WaybarSelection) -> bool {
-    // For now, always return false - no expiration on waybar selection
+pub fn should_clear_selection(_selection: &crate::models::BarSelection) -> bool {
+    // For now, always return false - no expiration on the bar selection
     // Could be enhanced later with time-based expiration
     false
 }

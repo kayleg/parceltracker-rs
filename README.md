@@ -11,7 +11,6 @@ through the 17track aggregator API, which requires a key.
 
 - **CLI Commands**: Add, remove, rename, list, and update parcels
 - **Interactive TUI**: Navigate parcels with arrow keys, view details with Enter
-- **Waybar Integration**: Display selected parcel status in waybar
 - **Machine-readable status**: `parceltracker status --json` emits the full
   document (states, ETAs, checkpoint events, tracking URLs) — the contract
   behind the Omarchy shell plugin
@@ -77,8 +76,7 @@ parceltracker setup             # Interactive wizard: get + validate API keys
 parceltracker config [flags]    # Show or set API credentials
 parceltracker select <position|tracking>     # Select the bar's lead parcel
 parceltracker unselect          # Clear the bar selection
-parceltracker waybar            # Output waybar JSON
-parceltracker status --waybar   # Same as waybar (for waybar config)
+parceltracker status --json     # Machine-readable status document
 ```
 
 ### TUI Controls
@@ -90,18 +88,6 @@ parceltracker status --waybar   # Same as waybar (for waybar config)
 - **q/Esc**: Quit or close details view
 - **PgUp/PgDn**: Scroll in details view
 - **Home/End**: Jump to top/bottom in details
-
-## Waybar Configuration
-
-```json
-"custom/parcel": {
-  "exec": "parceltracker status --waybar",
-  "interval": 60,
-  "return-type": "json",
-  "tooltip": true,
-  "on-click": "parceltracker tui"
-}
-```
 
 ## Supported Carriers
 

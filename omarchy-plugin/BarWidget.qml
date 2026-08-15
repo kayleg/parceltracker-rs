@@ -19,6 +19,7 @@ BarWidget {
 
   property var view: Model.buildView(null, Date.now())
   property bool loaded: false
+  property bool cliMissing: false
   property string expandedId: ""
   property double nowMs: Date.now()
 
@@ -126,8 +127,15 @@ BarWidget {
 
   function applyStatus(raw) {
     try {
+      // Empty output means the CLI is not on PATH (bash -lc exits 127
+      // with nothing on stdout); surface an install hint in the popup.
+      if (!raw || raw.trim().length === 0) {
+        if (!loaded) cliMissing = true
+        return
+      }
       var doc = Model.parseStatus(raw)
       if (doc === null) return
+      cliMissing = false
       nowMs = Date.now()
       view = Model.buildView(doc, nowMs)
       loaded = true
@@ -146,7 +154,9 @@ BarWidget {
 
   Process {
     id: statusProc
-    command: ["parceltracker", "status", "--json"]
+    // Login shell so cargo-installed binaries (~/.cargo/bin, ~/.local/bin)
+    // are found even when the shell process' own PATH lacks them.
+    command: ["bash", "-lc", "parceltracker status --json"]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.applyStatus(text) }
   }
 
@@ -292,15 +302,18 @@ BarWidget {
         spacing: Style.spacing.sm
         visible: root.view.hero === null
         Text {
-          text: !root.loaded ? "Loading…" : "No parcels tracked"
+          text: root.cliMissing ? "parceltracker CLI not installed"
+            : (!root.loaded ? "Loading…" : "No parcels tracked")
           color: Color.popups.text
           font.family: Style.font.family
           font.pixelSize: Style.font.subtitle
         }
       }
       Text {
-        visible: root.view.hero === null && root.loaded
-        text: "parceltracker add <tracking> [description]"
+        visible: root.view.hero === null && (root.loaded || root.cliMissing)
+        text: root.cliMissing
+          ? "cargo install --git https://github.com/kayleg/parceltracker-rs"
+          : "parceltracker add <tracking> [description]"
         color: Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.6)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption

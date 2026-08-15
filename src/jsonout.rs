@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::api::get_tracking_url;
 use crate::models::Parcel;
-use crate::waybar::{format_eta_smart, resolve_waybar_parcel};
+use crate::bar::{format_eta_smart, resolve_bar_parcel};
 
 /// Build the `status --json` document. Pure function of its inputs so tests
 /// can pin the shape; `selected` is the tracking number the bar leads with.
@@ -55,7 +55,7 @@ pub fn build_json(parcels: &[Parcel], selected: Option<&str>, now: DateTime<Utc>
 }
 
 pub fn get_json_output(parcels: &[Parcel]) -> Result<String> {
-    let selected = resolve_waybar_parcel(parcels)?.map(|p| p.tracking_number.clone());
+    let selected = resolve_bar_parcel(parcels)?.map(|p| p.tracking_number.clone());
     let doc = build_json(parcels, selected.as_deref(), Utc::now());
     Ok(serde_json::to_string_pretty(&doc)?)
 }

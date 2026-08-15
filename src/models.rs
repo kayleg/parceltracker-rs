@@ -1,17 +1,18 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// Config and Waybar types
+// Config and bar-selection types
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(rename = "track17_api_key", skip_serializing_if = "Option::is_none")]
     pub track17_api_key: Option<String>,
+    // Serde key keeps the pre-Omarchy name so existing configs still load.
     #[serde(rename = "waybar_selected", skip_serializing_if = "Option::is_none")]
-    pub waybar_selected: Option<WaybarSelection>,
+    pub bar_selected: Option<BarSelection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WaybarSelection {
+pub struct BarSelection {
     pub tracking: String,
     #[serde(
         deserialize_with = "deserialize_timestamp",

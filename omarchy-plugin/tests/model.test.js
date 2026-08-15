@@ -86,7 +86,7 @@ test("relativeTime buckets", () => {
   assert.strictEqual(Model.relativeTime("not-a-date", NOW), "")
 })
 
-test("tooltip mirrors the waybar layout", () => {
+test("tooltip layout: hero line first, others as bullets", () => {
   const tip = Model.buildTooltip(Model.buildView(rich, NOW))
   const lines = tip.split("\n")
   assert.ok(lines[0].startsWith("Keyboard · "))

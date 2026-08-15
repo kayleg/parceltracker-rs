@@ -337,8 +337,7 @@ function buildView(doc, nowMs) {
   return { rows: rows, hero: hero, count: ordered.length, liveCount: liveCount }
 }
 
-// Bar hover tooltip, mirroring the old waybar module: hero line first, the
-// rest as bullets.
+// Bar hover tooltip: hero line first, the rest as bullets.
 function buildTooltip(view) {
   if (!view || view.count === 0) return "No parcels tracked"
   var hero = view.hero

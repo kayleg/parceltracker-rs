@@ -14,12 +14,12 @@ mod models;
 #[allow(dead_code)]
 mod storage;
 mod tui;
-mod waybar;
+mod bar;
 
 use api::Client as ApiClient;
 use models::{Carrier, Parcel};
 use storage::{load_config, load_parcels, remove_parcel, rename_parcel, save_parcels};
-use waybar::{get_waybar_output, resolve_waybar_parcel, select_parcel_for_waybar, unselect_parcel};
+use bar::{resolve_bar_parcel, select_parcel_for_bar, unselect_parcel};
 
 #[derive(Parser)]
 #[command(name = "parceltracker")]
@@ -74,9 +74,6 @@ enum Commands {
     /// Clear the bar's parcel selection
     Unselect,
 
-    /// Output waybar JSON
-    Waybar,
-
     /// Open tracking page in browser (defaults to the bar-selected parcel)
     Open {
         /// Position number or tracking number (optional)
@@ -86,14 +83,10 @@ enum Commands {
     /// Cycle the bar's selected parcel
     Cycle,
 
-    /// Status output (for waybar compatibility)
+    /// Status output (--json emits the machine-readable document)
     Status {
-        /// Output waybar JSON format
-        #[arg(long)]
-        waybar: bool,
-
         /// Output the full machine-readable status document
-        #[arg(long, conflicts_with = "waybar")]
+        #[arg(long)]
         json: bool,
     },
 
@@ -128,18 +121,15 @@ async fn main() -> Result<()> {
         }) => rename_parcel_cmd(&identifier, &new_description).await,
         Some(Commands::List) => list_parcels().await,
         Some(Commands::Update) => update_parcels().await,
-        Some(Commands::Select { identifier }) => select_for_waybar(&identifier).await,
-        Some(Commands::Unselect) => unselect_for_waybar().await,
-        Some(Commands::Waybar) => output_waybar().await,
+        Some(Commands::Select { identifier }) => select_for_bar(&identifier).await,
+        Some(Commands::Unselect) => unselect_for_bar().await,
         Some(Commands::Open { identifier }) => open_tracking(identifier.as_deref()).await,
-        Some(Commands::Cycle) => cycle_waybar_selection().await,
+        Some(Commands::Cycle) => cycle_bar_selection().await,
         Some(Commands::Setup) => setup::run().await,
         Some(Commands::Config { track17_key }) => config_cmd(track17_key),
-        Some(Commands::Status { waybar, json }) => {
+        Some(Commands::Status { json }) => {
             if json {
                 output_json().await
-            } else if waybar {
-                output_waybar().await
             } else {
                 list_parcels().await
             }
@@ -458,16 +448,16 @@ pub(crate) fn print_config_summary(config: &models::Config) {
     println!("  17track key:   {}", set_or_dash(&config.track17_api_key));
 }
 
-async fn select_for_waybar(identifier: &str) -> Result<()> {
+async fn select_for_bar(identifier: &str) -> Result<()> {
     let parcels = load_parcels()?;
 
-    let result = select_parcel_for_waybar(&parcels, identifier)?;
+    let result = select_parcel_for_bar(&parcels, identifier)?;
     println!("{}", result.green());
 
     Ok(())
 }
 
-async fn unselect_for_waybar() -> Result<()> {
+async fn unselect_for_bar() -> Result<()> {
     let result = unselect_parcel()?;
     println!("{}", result.green());
     Ok(())
@@ -491,7 +481,7 @@ async fn open_tracking(identifier: Option<&str>) -> Result<()> {
             parcels.iter().find(|p| p.tracking_number == id)
         }
     } else {
-        resolve_waybar_parcel(&parcels)?
+        resolve_bar_parcel(&parcels)?
     };
 
     let Some(parcel) = target else {
@@ -526,7 +516,7 @@ async fn open_tracking(identifier: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-async fn cycle_waybar_selection() -> Result<()> {
+async fn cycle_bar_selection() -> Result<()> {
     let parcels = load_parcels()?;
     if parcels.is_empty() {
         println!("{}", "No parcels tracked.".yellow());
@@ -534,7 +524,7 @@ async fn cycle_waybar_selection() -> Result<()> {
     }
 
     let config = load_config()?;
-    let next_idx = if let Some(sel) = config.waybar_selected {
+    let next_idx = if let Some(sel) = config.bar_selected {
         let current_idx = parcels
             .iter()
             .position(|p| p.tracking_number == sel.tracking)
@@ -545,15 +535,8 @@ async fn cycle_waybar_selection() -> Result<()> {
     };
 
     let next = &parcels[next_idx];
-    let result = select_parcel_for_waybar(&parcels, &next.tracking_number)?;
+    let result = select_parcel_for_bar(&parcels, &next.tracking_number)?;
     println!("{}", result.green());
-    Ok(())
-}
-
-async fn output_waybar() -> Result<()> {
-    let parcels = load_parcels()?;
-    let output = get_waybar_output(&parcels)?;
-    println!("{}", output);
     Ok(())
 }
 
