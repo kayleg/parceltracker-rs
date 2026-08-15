@@ -324,7 +324,7 @@ BarWidget {
       Text {
         visible: root.view.hero === null && (root.loaded || root.cliMissing)
         text: root.cliMissing
-          ? "or: cargo install --git https://github.com/kayleg/parceltracker-rs"
+          ? "or follow the manual install in the plugin README"
           : "parceltracker add <tracking> [description]"
         color: Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.6)
         font.family: Style.font.family

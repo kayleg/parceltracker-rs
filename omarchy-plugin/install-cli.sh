@@ -5,8 +5,12 @@
 # visible to the user).
 set -u
 REPO="https://github.com/kayleg/parceltracker-rs"
+# Pinned commit + locked dependencies so the source reviewed for the
+# marketplace listing cannot change underneath it. Bump REV in a new
+# plugin commit whenever the CLI is intentionally updated.
+REV="07920e240c16ed58421403b1d1bd98c9787ff751"
 
-echo "Installing the parceltracker CLI from $REPO"
+echo "Installing the parceltracker CLI from $REPO@${REV:0:12}"
 echo
 if ! command -v cargo >/dev/null 2>&1; then
   echo "The Rust toolchain is required, but 'cargo' was not found."
@@ -15,7 +19,7 @@ if ! command -v cargo >/dev/null 2>&1; then
   echo "  omarchy pkg add rustup && rustup default stable"
   echo
   echo "then click 'Install CLI' again."
-elif cargo install --git "$REPO"; then
+elif cargo install --locked --git "$REPO" --rev "$REV"; then
   echo
   echo "✓ Installed. The widget will pick it up on its next refresh;"
   echo "  add a parcel with: parceltracker add <tracking> [description]"

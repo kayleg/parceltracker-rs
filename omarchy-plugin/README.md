@@ -35,8 +35,15 @@ the build in a floating terminal (needs the Rust toolchain), or install
 it yourself:
 
 ```bash
-cargo install --git https://github.com/kayleg/parceltracker-rs
+cargo install --locked \
+  --git https://github.com/kayleg/parceltracker-rs \
+  --rev 07920e240c16ed58421403b1d1bd98c9787ff751
 ```
+
+The commit is pinned (and dependencies locked) so the source this
+listing was reviewed against cannot change underneath it; the pin is
+bumped in a new plugin release whenever the CLI is intentionally
+updated.
 
 Amazon (TBA…) parcels track out of the box with no API key; other
 carriers (FedEx, UPS, USPS, DHL, …) need a 17track API key — run
